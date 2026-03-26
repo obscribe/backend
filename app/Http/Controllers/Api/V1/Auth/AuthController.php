@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use App\Http\Controllers\Api\V1\Auth\EmailVerificationController;
 
 class AuthController extends Controller
 {
@@ -17,7 +18,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers()],
+            'password' => ['required', 'string', 'min:8'],
             'encrypted_vault_key' => ['nullable', 'string'],
             'vault_nonce' => ['nullable', 'string'],
         ]);
@@ -30,9 +31,8 @@ class AuthController extends Controller
             'vault_nonce' => $validated['vault_nonce'] ?? null,
         ]);
 
-        // TODO: Queue email verification notification
-        // For now, skip automatic verification email in dev
-        // $user->sendEmailVerificationNotification();
+        // Send email verification
+        EmailVerificationController::sendVerificationEmail($user);
 
         $token = $user->createToken('auth-token', ['*'], now()->addDays(30));
 

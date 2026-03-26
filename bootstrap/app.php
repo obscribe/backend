@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'mfa.required' => \App\Http\Middleware\RequireMfa::class,
         ]);
 
-        $middleware->statefulApi();
+        // $middleware->statefulApi(); // Using token auth, not session/CSRF
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

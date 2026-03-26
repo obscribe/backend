@@ -1,10 +1,13 @@
 <?php
 
 use App\Http\Controllers\Api\V1\Auth\AuthController;
+use App\Http\Controllers\Api\V1\Auth\EmailVerificationController;
 use App\Http\Controllers\Api\V1\Auth\MagicLinkController;
 use App\Http\Controllers\Api\V1\Auth\MfaController;
 use App\Http\Controllers\Api\V1\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\NotebookController;
+use App\Http\Controllers\Api\V1\PageController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -31,10 +34,7 @@ Route::post('/auth/forgot-password', [PasswordController::class, 'forgot'])
 Route::post('/auth/reset-password', [PasswordController::class, 'reset']);
 
 // Email Verification (token in URL, no auth needed)
-Route::post('/auth/verify-email', function (Request $request) {
-    // TODO: Implement email verification via signed URL token
-    return response()->json(['message' => 'Email verification endpoint.']);
-});
+Route::post('/auth/verify-email', [EmailVerificationController::class, 'verify']);
 
 // MFA Verification (uses temporary mfa-pending token)
 Route::post('/auth/mfa/verify', [MfaController::class, 'verify'])
@@ -70,10 +70,7 @@ Route::middleware(['auth:sanctum', 'mfa.required'])->group(function () {
     // Auth actions
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/logout-all', [AuthController::class, 'logoutAll']);
-    Route::post('/auth/resend-verification', function (Request $request) {
-        $request->user()->sendEmailVerificationNotification();
-        return response()->json(['message' => 'Verification email sent.']);
-    });
+    Route::post('/auth/resend-verification', [EmailVerificationController::class, 'resend']);
 
     // MFA management
     Route::post('/auth/mfa/enable', [MfaController::class, 'enable']);
@@ -144,6 +141,30 @@ Route::middleware(['auth:sanctum', 'mfa.required'])->group(function () {
             'timezone' => $request->user()->timezone,
         ]);
     });
+
+    // Onboarding
+    Route::post('/user/onboarded', function (Request $request) {
+        $user = $request->user();
+        if (!$user->onboarded_at) {
+            $user->onboarded_at = now();
+            $user->save();
+        }
+        return response()->json(['message' => 'Onboarding complete.', 'onboarded_at' => $user->onboarded_at]);
+    });
+
+    // Notebooks
+    Route::apiResource('notebooks', NotebookController::class);
+    Route::post('notebooks/{notebook}/restore', [NotebookController::class, 'restore']);
+
+    // Pages
+    Route::get('notebooks/{notebook}/pages', [PageController::class, 'index']);
+    Route::post('notebooks/{notebook}/pages', [PageController::class, 'store']);
+    Route::get('pages/{page}', [PageController::class, 'show']);
+    Route::patch('pages/{page}', [PageController::class, 'update']);
+    Route::delete('pages/{page}', [PageController::class, 'destroy']);
+    Route::post('pages/{page}/restore', [PageController::class, 'restore']);
+    Route::patch('pages/{page}/pin', [PageController::class, 'togglePin']);
+    Route::patch('pages/{page}/favorite', [PageController::class, 'toggleFavorite']);
 
     // Vault
     Route::get('/vault', function (Request $request) {

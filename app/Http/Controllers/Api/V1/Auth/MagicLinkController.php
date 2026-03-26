@@ -19,11 +19,11 @@ class MagicLinkController extends Controller
 
         $user = User::where('email', $validated['email'])->first();
 
-        // Always return success to prevent email enumeration
         if (!$user) {
             return response()->json([
-                'message' => 'If an account exists, a magic link has been sent.',
-            ]);
+                'message' => 'No account found with that email. Would you like to sign up?',
+                'account_exists' => false,
+            ], 404);
         }
 
         $token = Str::random(64);
