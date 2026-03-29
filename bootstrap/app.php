@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'tier.limits' => \App\Http\Middleware\EnforceTierLimits::class,
             'mfa.required' => \App\Http\Middleware\RequireMfa::class,
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'pro' => \App\Http\Middleware\EnsurePro::class,
+            'billing' => \App\Http\Middleware\BillingEnabled::class,
         ]);
 
         // $middleware->statefulApi(); // Using token auth, not session/CSRF

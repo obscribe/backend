@@ -66,12 +66,48 @@ class User extends Authenticatable
 
     public function isFree(): bool
     {
-        return $this->tier === 'free';
+        return !$this->isPro();
     }
 
     public function isPro(): bool
     {
-        return $this->tier === 'pro';
+        // Self-hosted mode: everyone is pro
+        if (config('app.self_hosted')) {
+            return true;
+        }
+
+        return $this->subscriptions()
+            ->where('status', 'active')
+            ->where('expires_at', '>', now())
+            ->exists();
+    }
+
+    public function subscription()
+    {
+        return $this->hasOne(Subscription::class)->latestOfMany();
+    }
+
+    public function activeSubscription(): ?Subscription
+    {
+        return $this->subscriptions()
+            ->where('status', 'active')
+            ->where('expires_at', '>', now())
+            ->first();
+    }
+
+    public function activePlan(): ?Plan
+    {
+        return $this->activeSubscription()?->plan;
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function subscriptions()
+    {
+        return $this->hasMany(Subscription::class);
     }
 
     public function hasMfaEnabled(): bool

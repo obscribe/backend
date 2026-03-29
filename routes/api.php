@@ -9,6 +9,10 @@ use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\NotebookController;
 use App\Http\Controllers\Api\V1\PageController;
 use App\Http\Controllers\Api\V1\Admin\UserManagementController;
+use App\Http\Controllers\Api\V1\Billing\PlanController;
+use App\Http\Controllers\Api\V1\Billing\BillingController;
+use App\Http\Controllers\Api\V1\Billing\CheckoutController;
+use App\Http\Controllers\Api\V1\Billing\WebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -56,10 +60,20 @@ Route::get('/config', function () {
         'features' => [
             'magic_link' => mailEnabled(),
             'mfa' => true,
-            'billing' => false, // not configured yet
+            'billing' => !config('app.self_hosted') && config('services.stripe.secret'),
             'email' => mailEnabled(),
         ],
     ]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Webhook Routes (no auth, no CSRF)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['billing'])->group(function () {
+    Route::post('/webhooks/stripe', [WebhookController::class, 'stripe']);
+    Route::post('/webhooks/plisio', [WebhookController::class, 'plisio']);
 });
 
 /*
@@ -244,6 +258,27 @@ Route::middleware(['auth:sanctum', 'verified', 'mfa.required'])->group(function 
     });
 
     // Vault routes moved outside verified group (see above)
+
+    /*
+    |--------------------------------------------------------------------------
+    | Billing Routes (disabled in self-hosted mode)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['billing'])->group(function () {
+        // Plans (public-ish but behind auth for consistency)
+        Route::get('plans', [PlanController::class, 'index']);
+
+        // Billing
+        Route::get('billing', [BillingController::class, 'status']);
+        Route::get('billing/payments', [BillingController::class, 'payments']);
+        Route::post('billing/cancel', [BillingController::class, 'cancel']);
+        Route::post('billing/resume', [BillingController::class, 'resume']);
+
+        // Checkout
+        Route::post('billing/checkout/stripe', [CheckoutController::class, 'stripe']);
+        Route::post('billing/checkout/plisio', [CheckoutController::class, 'plisio']);
+        Route::get('billing/portal', [CheckoutController::class, 'portal']);
+    });
 });
 
 /*
