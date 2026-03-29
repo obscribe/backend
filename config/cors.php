@@ -1,17 +1,16 @@
 <?php
 
 return [
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*'],
     'allowed_methods' => ['*'],
     'allowed_origins' => [
+        'https://app.obscribe.com',
         'https://obscribe.com',
-        'https://www.obscribe.com',
         'http://localhost:5181',
-        'http://127.0.0.1:5181',
     ],
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
-    'max_age' => 0,
-    'supports_credentials' => true,
+    'max_age' => 86400,
+    'supports_credentials' => false,
 ];

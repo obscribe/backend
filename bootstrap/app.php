@@ -22,5 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // $middleware->statefulApi(); // Using token auth, not session/CSRF
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Throwable $e, $request) {
+            if ($request->expectsJson() && !config('app.debug')) {
+                $status = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;
+                return response()->json(['message' => 'Server error.'], $status);
+            }
+        });
     })->create();

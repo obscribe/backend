@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Notifications\MagicLinkNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -21,19 +22,17 @@ class MagicLinkController extends Controller
 
         if (!$user) {
             return response()->json([
-                'message' => 'No account found with that email. Would you like to sign up?',
-                'account_exists' => false,
-            ], 404);
+                'message' => 'If an account exists, a magic link has been sent.',
+            ]);
         }
 
         $token = Str::random(64);
         Cache::put("magic-link:{$token}", $user->id, now()->addMinutes(15));
 
-        // TODO: Send magic link email with token
-        // Mail::to($user)->send(new MagicLinkMail($token));
+        $user->notify(new MagicLinkNotification($token));
 
         return response()->json([
-            'message' => 'If an account exists, a magic link has been sent.',
+            'message' => 'Magic link sent! Check your email.',
         ]);
     }
 

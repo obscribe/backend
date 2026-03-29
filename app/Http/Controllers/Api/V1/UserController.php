@@ -6,13 +6,14 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use App\Http\Resources\UserResource;
 
 class UserController extends Controller
 {
     public function show(Request $request): JsonResponse
     {
         return response()->json([
-            'user' => $request->user(),
+            'user' => new UserResource($request->user()),
         ]);
     }
 
@@ -28,7 +29,7 @@ class UserController extends Controller
         $request->user()->update($validated);
 
         return response()->json([
-            'user' => $request->user()->fresh(),
+            'user' => new UserResource($request->user()->fresh()),
         ]);
     }
 

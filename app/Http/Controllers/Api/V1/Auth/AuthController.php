@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use App\Http\Controllers\Api\V1\Auth\EmailVerificationController;
+use App\Http\Resources\UserResource;
 
 class AuthController extends Controller
 {
@@ -18,9 +19,12 @@ class AuthController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'string', 'min:8'],
+            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers(), 'confirmed'],
             'encrypted_vault_key' => ['nullable', 'string'],
             'vault_nonce' => ['nullable', 'string'],
+            'salt' => ['nullable', 'string'],
+            'recovery_encrypted_vault_key' => ['nullable', 'string'],
+            'recovery_vault_nonce' => ['nullable', 'string'],
         ]);
 
         $user = User::create([
@@ -29,10 +33,18 @@ class AuthController extends Controller
             'password' => $validated['password'],
             'encrypted_vault_key' => $validated['encrypted_vault_key'] ?? null,
             'vault_nonce' => $validated['vault_nonce'] ?? null,
+            'salt' => $validated['salt'] ?? null,
+            'recovery_encrypted_vault_key' => $validated['recovery_encrypted_vault_key'] ?? null,
+            'recovery_vault_nonce' => $validated['recovery_vault_nonce'] ?? null,
         ]);
 
-        // Send email verification
-        EmailVerificationController::sendVerificationEmail($user);
+        // Send email verification (don't let email failure kill registration)
+        try {
+            EmailVerificationController::sendVerificationEmail($user);
+        } catch (\Exception $e) {
+            // Log but don't fail registration
+            \Illuminate\Support\Facades\Log::warning('Failed to send verification email: ' . $e->getMessage());
+        }
 
         $token = $user->createToken('auth-token', ['*'], now()->addDays(30));
 
@@ -43,7 +55,7 @@ class AuthController extends Controller
         ]);
 
         return response()->json([
-            'user' => $user,
+            'user' => new UserResource($user),
             'token' => $token->plainTextToken,
         ], 201);
     }
@@ -77,6 +89,8 @@ class AuthController extends Controller
             ]);
         }
 
+        $user->update(['last_login_at' => now()]);
+
         $token = $user->createToken('auth-token', ['*'], now()->addDays(30));
         $token->accessToken->update([
             'ip_address' => $request->ip(),
@@ -84,7 +98,7 @@ class AuthController extends Controller
         ]);
 
         return response()->json([
-            'user' => $user,
+            'user' => new UserResource($user),
             'token' => $token->plainTextToken,
         ]);
     }

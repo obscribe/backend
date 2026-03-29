@@ -38,7 +38,7 @@ Route::post('/auth/verify-email', [EmailVerificationController::class, 'verify']
 
 // MFA Verification (uses temporary mfa-pending token)
 Route::post('/auth/mfa/verify', [MfaController::class, 'verify'])
-    ->middleware('auth:sanctum');
+    ->middleware(['auth:sanctum', 'throttle:5,1']);
 
 // System
 Route::get('/health', function () {
@@ -65,12 +65,39 @@ Route::get('/config', function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth:sanctum', 'mfa.required'])->group(function () {
+// These need auth but NOT verified/mfa (used during registration/onboarding)
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/auth/resend-verification', [EmailVerificationController::class, 'resend']);
+    
+    // Vault — must be accessible right after registration (before email verification)
+    Route::get('/vault', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        return response()->json([
+            'encrypted_vault_key' => $user->encrypted_vault_key,
+            'vault_nonce' => $user->vault_nonce,
+            'salt' => $user->salt,
+            'recovery_encrypted_vault_key' => $user->recovery_encrypted_vault_key,
+            'recovery_vault_nonce' => $user->recovery_vault_nonce,
+        ]);
+    });
+    Route::patch('/vault', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'encrypted_vault_key' => ['required', 'string'],
+            'vault_nonce' => ['required', 'string'],
+            'salt' => ['sometimes', 'string'],
+            'recovery_encrypted_vault_key' => ['sometimes', 'string'],
+            'recovery_vault_nonce' => ['sometimes', 'string'],
+        ]);
+        $request->user()->update($validated);
+        return response()->json(['message' => 'Vault key updated.']);
+    });
+});
+
+Route::middleware(['auth:sanctum', 'verified', 'mfa.required'])->group(function () {
 
     // Auth actions
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/logout-all', [AuthController::class, 'logoutAll']);
-    Route::post('/auth/resend-verification', [EmailVerificationController::class, 'resend']);
 
     // MFA management
     Route::post('/auth/mfa/enable', [MfaController::class, 'enable']);
@@ -153,8 +180,10 @@ Route::middleware(['auth:sanctum', 'mfa.required'])->group(function () {
     });
 
     // Notebooks
-    Route::apiResource('notebooks', NotebookController::class);
+    Route::post('notebooks', [NotebookController::class, 'store'])->middleware('tier.limits');
+    Route::apiResource('notebooks', NotebookController::class)->except(['store']);
     Route::post('notebooks/{notebook}/restore', [NotebookController::class, 'restore']);
+    Route::patch('notebooks/{notebook}/favorite', [NotebookController::class, 'toggleFavorite']);
 
     // Pages
     Route::get('notebooks/{notebook}/pages', [PageController::class, 'index']);
@@ -166,21 +195,50 @@ Route::middleware(['auth:sanctum', 'mfa.required'])->group(function () {
     Route::patch('pages/{page}/pin', [PageController::class, 'togglePin']);
     Route::patch('pages/{page}/favorite', [PageController::class, 'toggleFavorite']);
 
-    // Vault
-    Route::get('/vault', function (Request $request) {
-        $user = $request->user();
-        return response()->json([
-            'encrypted_vault_key' => $user->encrypted_vault_key,
-            'vault_nonce' => $user->vault_nonce,
-        ]);
+    // Favorites
+    Route::get('favorites', function (Request $request) {
+        $pages = \App\Models\Page::whereHas('notebook', function ($q) use ($request) {
+            $q->where('user_id', $request->user()->id);
+        })->where('is_favorited', true)
+          ->whereNull('trashed_at')
+          ->with('notebook:id,title,icon')
+          ->orderByDesc('updated_at')
+          ->get();
+
+        return response()->json(['pages' => $pages]);
     });
 
-    Route::patch('/vault', function (Request $request) {
-        $validated = $request->validate([
-            'encrypted_vault_key' => ['required', 'string'],
-            'vault_nonce' => ['required', 'string'],
-        ]);
-        $request->user()->update($validated);
-        return response()->json(['message' => 'Vault key updated.']);
+    // Search
+    Route::get('search', function (Request $request) {
+        $q = $request->input('q', '');
+        if (strlen($q) < 2) {
+            return response()->json(['notebooks' => [], 'pages' => []]);
+        }
+
+        $userId = $request->user()->id;
+        $escaped = str_replace(['%', '_'], ['\%', '\_'], $q);
+
+        $notebooks = \App\Models\Notebook::where('user_id', $userId)
+            ->whereNull('trashed_at')
+            ->where(function ($query) use ($escaped) {
+                $query->where('title', 'like', "%{$escaped}%")
+                      ->orWhere('description', 'like', "%{$escaped}%");
+            })->limit(10)->get();
+
+        // Note: content is E2E encrypted so we only search titles and tags server-side
+        $pages = \App\Models\Page::whereHas('notebook', function ($query) use ($userId) {
+            $query->where('user_id', $userId);
+        })->whereNull('trashed_at')
+          ->where(function ($query) use ($escaped) {
+              $query->where('title', 'like', "%{$escaped}%")
+                    ->orWhereHas('tags', function ($tq) use ($escaped) {
+                        $tq->where('tag', 'like', "%{$escaped}%");
+                    });
+          })->with('notebook:id,title,icon')
+            ->limit(10)->get();
+
+        return response()->json(['notebooks' => $notebooks, 'pages' => $pages]);
     });
+
+    // Vault routes moved outside verified group (see above)
 });

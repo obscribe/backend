@@ -15,7 +15,7 @@ class UpdatePageRequest extends FormRequest
     {
         return [
             'title' => ['sometimes', 'string', 'max:255'],
-            'encrypted_content' => ['nullable', 'string'],
+            'encrypted_content' => ['nullable', 'string', 'max:5000000'],
             'content_nonce' => ['nullable', 'string'],
             'date_mode' => ['nullable', 'string', 'in:dated,undated'],
             'page_date' => ['nullable', 'date'],

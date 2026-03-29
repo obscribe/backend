@@ -11,7 +11,6 @@ class Notebook extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
         'title',
         'description',
         'icon',
@@ -20,6 +19,7 @@ class Notebook extends Model
         'destruction_at',
         'is_archived',
         'is_locked',
+        'is_favorited',
         'sort_order',
         'trashed_at',
     ];
@@ -31,6 +31,7 @@ class Notebook extends Model
             'trashed_at' => 'datetime',
             'is_archived' => 'boolean',
             'is_locked' => 'boolean',
+            'is_favorited' => 'boolean',
         ];
     }
 

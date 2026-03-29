@@ -29,6 +29,7 @@ class NotebookController extends Controller
                 'type' => $n->type,
                 'is_archived' => $n->is_archived,
                 'is_locked' => $n->is_locked,
+                'is_favorited' => $n->is_favorited,
                 'sort_order' => $n->sort_order,
                 'page_count' => $n->pages_count,
                 'created_at' => $n->created_at,
@@ -57,6 +58,7 @@ class NotebookController extends Controller
                 'type' => $notebook->type,
                 'is_archived' => $notebook->is_archived,
                 'is_locked' => $notebook->is_locked,
+                'is_favorited' => $notebook->is_favorited,
                 'sort_order' => $notebook->sort_order,
                 'page_count' => 0,
                 'created_at' => $notebook->created_at,
@@ -83,6 +85,7 @@ class NotebookController extends Controller
                 'type' => $notebook->type,
                 'is_archived' => $notebook->is_archived,
                 'is_locked' => $notebook->is_locked,
+                'is_favorited' => $notebook->is_favorited,
                 'sort_order' => $notebook->sort_order,
                 'page_count' => $notebook->pages_count,
                 'created_at' => $notebook->created_at,
@@ -106,6 +109,7 @@ class NotebookController extends Controller
                 'type' => $notebook->type,
                 'is_archived' => $notebook->is_archived,
                 'is_locked' => $notebook->is_locked,
+                'is_favorited' => $notebook->is_favorited,
                 'sort_order' => $notebook->sort_order,
                 'page_count' => $notebook->pages_count,
                 'created_at' => $notebook->created_at,
@@ -125,6 +129,19 @@ class NotebookController extends Controller
         $notebook->pages()->whereNull('trashed_at')->update(['trashed_at' => now()]);
 
         return response()->json(['message' => 'Notebook moved to trash.']);
+    }
+
+    public function toggleFavorite(Request $request, Notebook $notebook): JsonResponse
+    {
+        if ($notebook->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        $notebook->update(['is_favorited' => !$notebook->is_favorited]);
+
+        return response()->json([
+            'is_favorited' => $notebook->is_favorited,
+        ]);
     }
 
     public function restore(Request $request, Notebook $notebook): JsonResponse
