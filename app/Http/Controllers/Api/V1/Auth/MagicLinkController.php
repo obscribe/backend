@@ -14,6 +14,12 @@ class MagicLinkController extends Controller
 {
     public function send(Request $request): JsonResponse
     {
+        if (!mailEnabled()) {
+            return response()->json([
+                'message' => 'Magic link login is not available. Please use your password.',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'email' => ['required', 'string', 'email'],
         ]);

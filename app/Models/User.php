@@ -16,6 +16,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'is_admin',
         'avatar',
         'timezone',
         'theme',
@@ -49,6 +50,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'is_admin' => 'boolean',
             'two_factor_confirmed_at' => 'datetime',
             'two_factor_recovery_codes' => 'array',
             'onboarded_at' => 'datetime',
@@ -75,5 +77,10 @@ class User extends Authenticatable
     public function hasMfaEnabled(): bool
     {
         return !is_null($this->two_factor_confirmed_at);
+    }
+
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin;
     }
 }

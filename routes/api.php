@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\NotebookController;
 use App\Http\Controllers\Api\V1\PageController;
+use App\Http\Controllers\Api\V1\Admin\UserManagementController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -51,10 +52,12 @@ Route::get('/health', function () {
 Route::get('/config', function () {
     return response()->json([
         'app_name' => config('app.name'),
+        'self_hosted' => config('app.self_hosted'),
         'features' => [
-            'magic_link' => true,
+            'magic_link' => mailEnabled(),
             'mfa' => true,
             'billing' => false, // not configured yet
+            'email' => mailEnabled(),
         ],
     ]);
 });
@@ -241,4 +244,18 @@ Route::middleware(['auth:sanctum', 'verified', 'mfa.required'])->group(function 
     });
 
     // Vault routes moved outside verified group (see above)
+});
+
+/*
+|--------------------------------------------------------------------------
+| Admin Routes
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+    Route::get('/users', [UserManagementController::class, 'index']);
+    Route::post('/users', [UserManagementController::class, 'store']);
+    Route::patch('/users/{id}', [UserManagementController::class, 'update']);
+    Route::delete('/users/{id}', [UserManagementController::class, 'destroy']);
+    Route::post('/users/{id}/reset-password', [UserManagementController::class, 'resetPassword']);
 });

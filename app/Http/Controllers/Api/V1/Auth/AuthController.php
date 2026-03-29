@@ -16,6 +16,16 @@ class AuthController extends Controller
 {
     public function register(Request $request): JsonResponse
     {
+        // Self-hosted registration control
+        if (config('app.self_hosted')) {
+            $adminExists = User::where('is_admin', true)->exists();
+            if ($adminExists) {
+                return response()->json([
+                    'message' => 'Registration is disabled. Contact your administrator.',
+                ], 403);
+            }
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
@@ -27,6 +37,8 @@ class AuthController extends Controller
             'recovery_vault_nonce' => ['nullable', 'string'],
         ]);
 
+        $isSelfHosted = config('app.self_hosted');
+
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -36,14 +48,20 @@ class AuthController extends Controller
             'salt' => $validated['salt'] ?? null,
             'recovery_encrypted_vault_key' => $validated['recovery_encrypted_vault_key'] ?? null,
             'recovery_vault_nonce' => $validated['recovery_vault_nonce'] ?? null,
+            // First user in self-hosted mode becomes admin
+            'is_admin' => $isSelfHosted && User::count() === 1,
+            // Auto-verify email in self-hosted mode
+            'email_verified_at' => $isSelfHosted ? now() : null,
         ]);
 
-        // Send email verification (don't let email failure kill registration)
-        try {
-            EmailVerificationController::sendVerificationEmail($user);
-        } catch (\Exception $e) {
-            // Log but don't fail registration
-            \Illuminate\Support\Facades\Log::warning('Failed to send verification email: ' . $e->getMessage());
+        // Send email verification (skip in self-hosted mode)
+        if (!$isSelfHosted) {
+            try {
+                EmailVerificationController::sendVerificationEmail($user);
+            } catch (\Exception $e) {
+                // Log but don't fail registration
+                \Illuminate\Support\Facades\Log::warning('Failed to send verification email: ' . $e->getMessage());
+            }
         }
 
         $token = $user->createToken('auth-token', ['*'], now()->addDays(30));

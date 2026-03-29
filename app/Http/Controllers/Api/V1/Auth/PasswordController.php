@@ -15,6 +15,12 @@ class PasswordController extends Controller
 {
     public function forgot(Request $request): JsonResponse
     {
+        if (!mailEnabled()) {
+            return response()->json([
+                'message' => 'Password reset via email is not available. Contact your administrator.',
+            ], 422);
+        }
+
         $request->validate([
             'email' => ['required', 'string', 'email'],
         ]);

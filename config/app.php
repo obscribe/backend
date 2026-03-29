@@ -56,6 +56,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Self-Hosted Mode
+    |--------------------------------------------------------------------------
+    |
+    | When true, registration is restricted (only the first user or admin-created
+    | users), email verification is skipped, and admin user management is available.
+    |
+    */
+
+    'self_hosted' => (bool) env('SELF_HOSTED', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

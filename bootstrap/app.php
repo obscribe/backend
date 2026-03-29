@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'verified' => \App\Http\Middleware\EnsureEmailVerified::class,
             'tier.limits' => \App\Http\Middleware\EnforceTierLimits::class,
             'mfa.required' => \App\Http\Middleware\RequireMfa::class,
+            'admin' => \App\Http\Middleware\EnsureAdmin::class,
         ]);
 
         // $middleware->statefulApi(); // Using token auth, not session/CSRF
